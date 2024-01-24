@@ -2,11 +2,13 @@ install.packages("dplyr")
 install.packages("janitor")
 install.packages("caret")
 install.packages("xgboost")
+install.packages("pROC")
 
 library(dplyr)
 library(janitor)
 library(caret)
 library(xgboost)
+library(pROC)
 
 # Carga Datos -------------------------------------------------------------
 
@@ -99,3 +101,8 @@ predicciones_clases <- ifelse(predicciones > 0.5, 1, 0)
 resultado <- table(predicciones_clases, test_data$is_fraud)
 print(resultado)
 
+# Curva ROC ---------------------------------------------------------------
+
+curva_roc <- roc(test_data$is_fraud, predicciones)
+plot(curva_roc, col = "blue", main = "Curva ROC")
+auc(curva_roc)
