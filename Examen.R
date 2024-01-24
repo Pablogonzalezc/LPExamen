@@ -1,10 +1,12 @@
 install.packages("dplyr")
 install.packages("janitor")
 install.packages("caret")
+install.packages("xgboost")
 
 library(dplyr)
 library(janitor)
 library(caret)
+library(xgboost)
 
 # Carga Datos -------------------------------------------------------------
 
@@ -48,3 +50,52 @@ type_encoding <- c("TRANSFER" = 0, "CASH_OUT" = 1)
 dataset_balanced$type_numeric <- as.numeric(factor(dataset_balanced$type, levels = names(type_encoding), labels = type_encoding))
 
 write.csv(dataset_balanced, file = "dataset_cleaned.csv", row.names = FALSE)
+
+
+# Seleccion y entrenamiento del modelo ------------------------------------
+
+dataset <- read.csv("dataset_cleaned.csv")
+
+# Preparacion datos -------------------------------------------------------
+
+selected_columns <- c("step", "amount", "oldbalance_org", "newbalance_orig", "oldbalance_dest", "newbalance_dest", "is_fraud", "type_numeric")
+selected_dataset <- dataset[selected_columns]
+
+set.seed(123)
+split_index <- createDataPartition(selected_dataset$is_fraud, p = 0.8, list = FALSE)
+train_data <- selected_dataset[split_index, ]
+test_data <- selected_dataset[-split_index, ]
+
+
+matriz_entrenamiento <- xgb.DMatrix(as.matrix(train_data[, -c(7)]), label = train_data$is_fraud)
+matriz_prueba <- xgb.DMatrix(as.matrix(test_data[, -c(7)]), label = test_data$is_fraud)
+
+
+
+# Modelo XGBOOST ----------------------------------------------------------
+
+parametros <- list(
+  objective = "binary:logistic",
+  eval_metric = "logloss"
+)
+
+# Entrenamiento -----------------------------------------------------------
+
+modelo_xgboost <- xgboost(data = matriz_entrenamiento, params = parametros, nrounds = 100, verbose = 1)
+
+
+# Predicciones ------------------------------------------------------------
+
+predicciones <- predict(modelo_xgboost, matriz_prueba)
+
+
+# Normalizacion de predicciones -------------------------------------------
+
+predicciones_clases <- ifelse(predicciones > 0.5, 1, 0)
+
+
+# Resultados --------------------------------------------------------------
+
+resultado <- table(predicciones_clases, test_data$is_fraud)
+print(resultado)
+
